@@ -37,7 +37,7 @@
   dirLight.position.set(5, 5, 5);
   scene.add(dirLight);
 
-  // --- Ground (PBR Material) ---
+  // --- Ground ---
   const groundMat = new THREE.MeshStandardMaterial({
     color: 0x777777,
     metalness: 0.2,
@@ -50,24 +50,32 @@
 
   // --- โหลดโมเดล GLB ---
   const loader = new THREE.GLTFLoader();
-  loader.load('sexy_punk_amy_rose.glb', (gltf) => {
-    const model = gltf.scene;
-    model.scale.set(1,1,1);
-    model.position.set(0,0,0);
-    scene.add(model);
 
-    // Traverse materials + GUI
-    model.traverse((child)=>{
-      if(child.isMesh && child.material){
-        const mat = child.material;
+  loader.load(
+    'sexy_punk_amy_rose.glb',  // <<<< ใส่ path ของโมเดลตรงนี้
+    (gltf) => {
+      console.log("✅ โหลดโมเดลสำเร็จ");
+      const model = gltf.scene;
+      model.scale.set(1,1,1);
+      model.position.set(0,0,0);
+      scene.add(model);
 
-        const gui = new lil.GUI();
-        gui.addColor(mat, 'color').name('Base Color');
-        gui.add(mat, 'metalness', 0, 1).name('Metallic');
-        gui.add(mat, 'roughness', 0, 1).name('Roughness');
-      }
-    });
-  });
+      // Traverse materials + GUI
+      model.traverse((child)=>{
+        if(child.isMesh && child.material){
+          const mat = child.material;
+          const gui = new lil.GUI();
+          gui.addColor(mat, 'color').name('Base Color');
+          gui.add(mat, 'metalness', 0, 1).name('Metallic');
+          gui.add(mat, 'roughness', 0, 1).name('Roughness');
+        }
+      });
+    },
+    undefined,
+    (err) => {
+      console.error("❌ โหลดโมเดลไม่สำเร็จ", err);
+    }
+  );
 
   // --- Resize ---
   window.addEventListener('resize', ()=>{
