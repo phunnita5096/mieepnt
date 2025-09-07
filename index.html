@@ -2,94 +2,104 @@
 <html lang="th">
 <head>
   <meta charset="utf-8" />
-  <title>PBR Shader Assignment • three.js</title>
+  <title>GLB + Custom Shader • three.js r128</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <style>html,body{height:100%;margin:0} canvas{display:block}</style>
-
-  <!-- Three.js -->
+  <style>
+    html,body{height:100%;margin:0}
+    canvas{display:block}
+  </style>
+  <!-- three.js -->
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+  <!-- OrbitControls -->
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-  <!-- GUI -->
-  <script src="https://cdn.jsdelivr.net/npm/lil-gui@0.18/dist/lil-gui.min.js"></script>
+  <!-- GLTFLoader -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 </head>
 <body>
 <script>
   // --- Scene / Camera / Renderer ---
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xf0f0f0);
+  scene.background = new THREE.Color(0x87ceeb);
 
   const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 100);
-  camera.position.set(0, 1.5, 3);
+  camera.position.set(0, 1.0, 2.5);
 
   const renderer = new THREE.WebGLRenderer({ antialias:true });
   renderer.setSize(innerWidth, innerHeight);
+  renderer.outputEncoding = THREE.sRGBEncoding;
   document.body.appendChild(renderer.domElement);
 
-  const controls = new THREE.OrbitControls(camera, renderer.domElement);
+  new THREE.OrbitControls(camera, renderer.domElement);
 
-  // --- Lights ---
-  const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
-  hemiLight.position.set(0, 20, 0);
-  scene.add(hemiLight);
+  // --- Uniforms & Shaders ---
+  const uniforms = {
+    uColor: { value: new THREE.Color(0xffaa00) },
+    time: { value: 1.0 },
+    uLightDir: { value: new THREE.Vector3(0.5, 0.9, 0.3).normalize() }
+  };
 
-  const dirLight = new THREE.DirectionalLight(0xffffff, 1);
-  dirLight.position.set(5, 5, 5);
-  scene.add(dirLight);
+  const vert = `
+    varying vec2 vUv;
+    uniform float time;
+    varying vec3 vNormal;
+    varying vec3 vPosition;
 
-  // --- Ground ---
-  const groundMat = new THREE.MeshStandardMaterial({
-    color: 0x777777,
-    metalness: 0.2,
-    roughness: 0.8
-  });
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(20,20), groundMat);
-  ground.rotation.x = -Math.PI/2;
-  ground.position.y = -0.01;
-  scene.add(ground);
-
-  // --- โหลดโมเดล GLB ---
-  const loader = new THREE.GLTFLoader();
-
-  loader.load(
-    'sexy_punk_amy_rose.glb',  // <<<< ใส่ path ของโมเดลตรงนี้
-    (gltf) => {
-      console.log("✅ โหลดโมเดลสำเร็จ");
-      const model = gltf.scene;
-      model.scale.set(1,1,1);
-      model.position.set(0,0,0);
-      scene.add(model);
-
-      // Traverse materials + GUI
-      model.traverse((child)=>{
-        if(child.isMesh && child.material){
-          const mat = child.material;
-          const gui = new lil.GUI();
-          gui.addColor(mat, 'color').name('Base Color');
-          gui.add(mat, 'metalness', 0, 1).name('Metallic');
-          gui.add(mat, 'roughness', 0, 1).name('Roughness');
-        }
-      });
-    },
-    undefined,
-    (err) => {
-      console.error("❌ โหลดโมเดลไม่สำเร็จ", err);
+    void main() {
+      vUv = uv;
+      vNormal = normalize(normalMatrix * normal);
+      vPosition = vec3(cos(time)*0.01, 0.0, sin(time)*0.01);
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position + vPosition, 1.0);
     }
-  );
+  `;
+
+  const frag = `
+    precision highp float;
+    varying vec2 vUv;
+    uniform vec3 uColor;
+    uniform vec3 uLightDir;
+    varying vec3 vNormal;
+
+    void main() {
+      float g = dot(normalize(vNormal), normalize(uLightDir));
+      g = clamp(g, 0.0, 1.0);
+      gl_FragColor = vec4(mix(uColor*0.3, uColor, g), 1.0);
+    }
+  `;
+
+  // --- Load GLB Model ---
+  const loader = new THREE.GLTFLoader();
+  loader.load('sexy_punk_amy_rose.glb', (gltf) => {
+    const model = gltf.scene;
+
+    // apply custom shader to all meshes
+    model.traverse((child) => {
+      if (child.isMesh) {
+        child.material = new THREE.ShaderMaterial({
+          vertexShader: vert,
+          fragmentShader: frag,
+          uniforms
+        });
+      }
+    });
+
+    model.scale.set(1,1,1);
+    model.position.set(0,0,0);
+    scene.add(model);
+  });
 
   // --- Resize ---
-  window.addEventListener('resize', ()=>{
+  addEventListener('resize', ()=>{
     camera.aspect = innerWidth/innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(innerWidth, innerHeight);
   });
 
-  // --- Render Loop ---
-  function animate(){
-    requestAnimationFrame(animate);
+  // --- Animation Loop ---
+  (function loop(){
+    uniforms.time.value += 0.05;
     renderer.render(scene, camera);
-  }
-  animate();
+    requestAnimationFrame(loop);
+  })();
 </script>
 </body>
 </html>
