@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
   <meta charset="utf-8" />
-  <title>Load GLB Model with PBR • three.js</title>
+  <title>PBR Shader Assignment • three.js</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>html,body{height:100%;margin:0} canvas{display:block}</style>
 
@@ -10,13 +10,12 @@
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-
-  <!-- lil-gui -->
+  <!-- GUI -->
   <script src="https://cdn.jsdelivr.net/npm/lil-gui@0.18/dist/lil-gui.min.js"></script>
 </head>
 <body>
 <script>
-  // Scene / Camera / Renderer
+  // --- Scene / Camera / Renderer ---
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xf0f0f0);
 
@@ -29,59 +28,55 @@
 
   const controls = new THREE.OrbitControls(camera, renderer.domElement);
 
-  // Light
+  // --- Lights ---
+  const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+  hemiLight.position.set(0, 20, 0);
+  scene.add(hemiLight);
+
   const dirLight = new THREE.DirectionalLight(0xffffff, 1);
-  dirLight.position.set(2, 4, 3);
+  dirLight.position.set(5, 5, 5);
   scene.add(dirLight);
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.3));
-
-  // Ground with PBR
+  // --- Ground (PBR Material) ---
   const groundMat = new THREE.MeshStandardMaterial({
     color: 0x777777,
-    metalness: 0.1,
-    roughness: 0.9
+    metalness: 0.2,
+    roughness: 0.8
   });
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(10,10), groundMat);
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(20,20), groundMat);
   ground.rotation.x = -Math.PI/2;
   ground.position.y = -0.01;
   scene.add(ground);
 
-  // GUI
-  const gui = new lil.GUI();
-  const groundFolder = gui.addFolder("Ground");
-  groundFolder.addColor(groundMat, 'color').name("Base Color");
-  groundFolder.add(groundMat, 'metalness', 0, 1);
-  groundFolder.add(groundMat, 'roughness', 0, 1);
-
-  // โหลดโมเดล GLB
+  // --- โหลดโมเดล GLB ---
   const loader = new THREE.GLTFLoader();
   loader.load('sexy_punk_amy_rose.glb', (gltf) => {
     const model = gltf.scene;
-    model.scale.set(1, 1, 1);
-    model.position.set(0, 0, 0);
+    model.scale.set(1,1,1);
+    model.position.set(0,0,0);
     scene.add(model);
 
-    // Loop ทุก mesh เพื่อให้ปรับค่าได้
-    model.traverse((child) => {
-      if (child.isMesh && child.material) {
+    // Traverse materials + GUI
+    model.traverse((child)=>{
+      if(child.isMesh && child.material){
         const mat = child.material;
-        const folder = gui.addFolder(child.name || "Model Material");
-        folder.addColor(mat, 'color').name("Base Color");
-        folder.add(mat, 'metalness', 0, 1);
-        folder.add(mat, 'roughness', 0, 1);
+
+        const gui = new lil.GUI();
+        gui.addColor(mat, 'color').name('Base Color');
+        gui.add(mat, 'metalness', 0, 1).name('Metallic');
+        gui.add(mat, 'roughness', 0, 1).name('Roughness');
       }
     });
   });
 
-  // Resize
+  // --- Resize ---
   window.addEventListener('resize', ()=>{
     camera.aspect = innerWidth/innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(innerWidth, innerHeight);
   });
 
-  // Render loop
+  // --- Render Loop ---
   function animate(){
     requestAnimationFrame(animate);
     renderer.render(scene, camera);
